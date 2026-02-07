@@ -1,0 +1,21 @@
+{
+  "appName": "Template App",
+  "pages": [
+    {
+      "id": "page_1",
+      "name": "Home",
+      "type": "StatelessWidget",
+      "widgets": [
+        {
+          "id": "txt_1",
+          "type": "text",
+          "text": "Xush kelibsiz!",
+          "fontSize": 24
+        }
+      ],
+      "logic": {
+        "onCreate": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+name: flutware_template
+description: "Template for generated apps."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  fluttertoast: ^8.2.2
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/project.json

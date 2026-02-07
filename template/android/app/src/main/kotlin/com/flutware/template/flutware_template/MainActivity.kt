@@ -1,0 +1,5 @@
+package com.flutware.template.flutware_template
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
