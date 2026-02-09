@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'screens/project_list_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  runApp(const ProviderScope(child: FlutwareApp()));
+import 'src/ui/workbench_screen.dart';
+
+void main() {
+  runApp(const FlutwareApp());
 }
 
 class FlutwareApp extends StatelessWidget {
@@ -15,35 +12,19 @@ class FlutwareApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutterware',
+      title: 'Flutware',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blueAccent,
-          background: Colors.white,
-        ),
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2B7DE9)),
+        scaffoldBackgroundColor: const Color(0xFFE9EEF5),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
           elevation: 0,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 2,
-          shadowColor: Colors.black12,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
         ),
       ),
-      home: const ProjectListScreen(),
+      home: const WorkbenchScreen(),
     );
   }
 }
