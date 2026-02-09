@@ -18,17 +18,37 @@ class ProjectNotifier extends StateNotifier<List<ProjectData>> {
   Future<void> _loadProjects() async {
     _box = await Hive.openBox('projects_box');
     final List<dynamic> rawProjects = _box.get('projects', defaultValue: []);
-    state = rawProjects.map((e) => ProjectData.decode(e as String)).toList();
+    try {
+      state = rawProjects.map((e) => ProjectData.decode(e as String)).toList();
+    } catch (e) {
+      // If error occurs (likely migration issue), clear state
+      state = [];
+      _box.put('projects', []);
+    }
   }
 
-  Future<void> addProject(String name) async {
+  Future<void> addProject({
+    required String appName,
+    required String packageName,
+    required String versionCode,
+    required String versionName,
+    required String colorPrimary,
+    required String colorPrimaryDark,
+    required String colorAccent,
+  }) async {
     final newProject = ProjectData(
-      appName: name,
+      appName: appName,
+      packageName: packageName,
+      versionCode: versionCode,
+      versionName: versionName,
+      colorPrimary: colorPrimary,
+      colorPrimaryDark: colorPrimaryDark,
+      colorAccent: colorAccent,
       pages: [
         PageData(
-          id: 'page_1',
+          id: 'page_home',
           name: 'Home',
-          type: 'StatelessWidget',
+          type: 'StatefulWidget',
           widgets: [],
           logic: {},
         ),

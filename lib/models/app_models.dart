@@ -4,19 +4,51 @@ import 'dart:convert';
 class ActionBlock {
   final String type;
   final Map<String, dynamic> data;
+  final List<ActionBlock> innerActions;
+  final List<ActionBlock> elseActions;
 
-  ActionBlock({required this.type, required this.data});
+  ActionBlock({
+    required this.type,
+    required this.data,
+    this.innerActions = const [],
+    this.elseActions = const [],
+  });
 
-  Map<String, dynamic> toJson() => {'type': type, ...data};
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'innerActions': innerActions.map((e) => e.toJson()).toList(),
+    'elseActions': elseActions.map((e) => e.toJson()).toList(),
+    ...data,
+  };
 
   factory ActionBlock.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String;
-    final data = Map<String, dynamic>.from(json)..remove('type');
-    return ActionBlock(type: type, data: data);
+    final inner = (json['innerActions'] as List? ?? [])
+        .map((e) => ActionBlock.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final elses = (json['elseActions'] as List? ?? [])
+        .map((e) => ActionBlock.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final data = Map<String, dynamic>.from(json)
+      ..remove('type')
+      ..remove('innerActions')
+      ..remove('elseActions');
+    return ActionBlock(
+      type: type,
+      data: data,
+      innerActions: inner,
+      elseActions: elses,
+    );
   }
 
   static ActionBlock toast(String message) =>
       ActionBlock(type: 'toast', data: {'message': message});
+
+  static ActionBlock snackbar(String message) =>
+      ActionBlock(type: 'snackbar', data: {'message': message});
+
+  static ActionBlock navigate(String pageId) =>
+      ActionBlock(type: 'navigate', data: {'targetPageId': pageId});
 }
 
 /// Represents the logic for a widget's events
@@ -66,6 +98,7 @@ class WidgetData {
   // Helpers
   String get text => properties['text'] ?? properties['label'] ?? '';
   double get fontSize => (properties['fontSize'] as num?)?.toDouble() ?? 16.0;
+  bool get enabled => properties['enabled'] != false;
 }
 
 /// Represents a single page in the project
@@ -126,18 +159,45 @@ class PageData {
 /// Represents the whole project
 class ProjectData {
   final String appName;
+  final String packageName;
+  final String versionCode;
+  final String versionName;
+  final String colorPrimary;
+  final String colorPrimaryDark;
+  final String colorAccent;
   final List<PageData> pages;
 
-  ProjectData({required this.appName, this.pages = const []});
+  ProjectData({
+    required this.appName,
+    this.packageName = 'com.example.myapp',
+    this.versionCode = '1',
+    this.versionName = '1.0',
+    this.colorPrimary = '0xFF2196F3', // Blue
+    this.colorPrimaryDark = '0xFF1976D2', // Dark Blue
+    this.colorAccent = '0xFFFF4081', // Pink
+    this.pages = const [],
+  });
 
   Map<String, dynamic> toJson() => {
     'appName': appName,
+    'packageName': packageName,
+    'versionCode': versionCode,
+    'versionName': versionName,
+    'colorPrimary': colorPrimary,
+    'colorPrimaryDark': colorPrimaryDark,
+    'colorAccent': colorAccent,
     'pages': pages.map((e) => e.toJson()).toList(),
   };
 
   factory ProjectData.fromJson(Map<String, dynamic> json) {
     return ProjectData(
       appName: json['appName'] as String,
+      packageName: json['packageName'] as String? ?? 'com.example.myapp',
+      versionCode: json['versionCode'] as String? ?? '1',
+      versionName: json['versionName'] as String? ?? '1.0',
+      colorPrimary: json['colorPrimary'] as String? ?? '0xFF2196F3',
+      colorPrimaryDark: json['colorPrimaryDark'] as String? ?? '0xFF1976D2',
+      colorAccent: json['colorAccent'] as String? ?? '0xFFFF4081',
       pages: (json['pages'] as List? ?? [])
           .map((e) => PageData.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -170,9 +230,24 @@ extension PageDataExt on PageData {
 }
 
 extension ProjectDataExt on ProjectData {
-  ProjectData copyWith({String? appName, List<PageData>? pages}) {
+  ProjectData copyWith({
+    String? appName,
+    String? packageName,
+    String? versionCode,
+    String? versionName,
+    String? colorPrimary,
+    String? colorPrimaryDark,
+    String? colorAccent,
+    List<PageData>? pages,
+  }) {
     return ProjectData(
       appName: appName ?? this.appName,
+      packageName: packageName ?? this.packageName,
+      versionCode: versionCode ?? this.versionCode,
+      versionName: versionName ?? this.versionName,
+      colorPrimary: colorPrimary ?? this.colorPrimary,
+      colorPrimaryDark: colorPrimaryDark ?? this.colorPrimaryDark,
+      colorAccent: colorAccent ?? this.colorAccent,
       pages: pages ?? this.pages,
     );
   }

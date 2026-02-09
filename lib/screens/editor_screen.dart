@@ -15,6 +15,7 @@ class EditorScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final project = ref.watch(currentProjectProvider);
     final page = ref.watch(currentPageProvider);
+    final projectIndex = ref.watch(currentProjectIndexProvider);
 
     if (project == null || page == null) {
       return const Scaffold(body: Center(child: Text('Yuklanmoqda...')));
@@ -24,38 +25,85 @@ class EditorScreen extends ConsumerWidget {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
+          titleSpacing: 0,
           title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(project.appName, style: const TextStyle(fontSize: 14)),
+              const Text('Flutterware', style: TextStyle(fontSize: 18)),
               Text(
-                page.name,
+                project.appName,
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'UI'),
-              Tab(text: 'initState'),
-              Tab(text: 'Ko\'rish'),
+              const Tab(text: 'View'),
+              const Tab(text: 'Event'),
+              const Tab(text: 'Build APK'),
             ],
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.delete_sweep, color: Colors.orange),
-              tooltip: 'Cacheni tozalash',
-              onPressed: () => _clearBuildCache(context),
+              icon: const Icon(Icons.undo),
+              tooltip: 'Undo',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Undo hozircha mavjud emas')),
+                );
+              },
             ),
             IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () => _showPageSettings(context, ref),
+              icon: const Icon(Icons.redo),
+              tooltip: 'Redo',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Redo hozircha mavjud emas')),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.save_outlined),
+              tooltip: 'Save',
+              onPressed: () {
+                if (projectIndex != null) {
+                  ref
+                      .read(projectProvider.notifier)
+                      .updateProject(projectIndex, project);
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Loyiha saqlandi')),
+                );
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                switch (value) {
+                  case 'pages':
+                    _showPageSettings(context, ref);
+                    break;
+                  case 'cache':
+                    _clearBuildCache(context);
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'pages', child: Text('Sahifalar')),
+                PopupMenuItem(
+                  value: 'cache',
+                  child: Text('Build cache tozalash'),
+                ),
+              ],
             ),
           ],
         ),
-        body: const TabBarView(children: [UiTab(), LogicTab(), PreviewTab()]),
+        body: TabBarView(
+          children: [const UiTab(), const LogicTab(), const PreviewTab()],
+        ),
       ),
     );
   }
@@ -124,59 +172,92 @@ class EditorScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Yangi Sahifa'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(hintText: 'Sahifa nomi'),
+        builder: (context, setDialogState) {
+          String? errorText;
+
+          bool validateName(String name) {
+            if (name.isEmpty) return false;
+            // Faqat harflar va pastki chiziq, raqamlar mumkin emas
+            // UpperCamelCase yoki under_line qoidasiga mosligini tekshirish (faqat formatni emas, taqiqlangan belgilarni)
+            final validPattern = RegExp(r'^[a-zA-Z_]+$');
+            if (!validPattern.hasMatch(name)) return false;
+            if (RegExp(r'\d').hasMatch(name))
+              return false; // Raqamlar taqiqlangan
+            return true;
+          }
+
+          return AlertDialog(
+            title: const Text('Yangi Sahifa'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    hintText: 'Sahifa nomi (masalan: HomePage)',
+                    errorText: errorText,
+                    helperText: 'Faqat harflar va _ (raqamlar mumkin emas)',
+                  ),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      if (!validateName(val)) {
+                        errorText = 'Nom noto\'g\'ri formatda';
+                      } else {
+                        errorText = null;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButton<String>(
+                  value: type,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'StatelessWidget',
+                      child: Text('StatelessWidget'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'StatefulWidget',
+                      child: Text('StatefulWidget'),
+                    ),
+                  ],
+                  onChanged: (val) => setDialogState(() => type = val!),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Bekor qilish'),
               ),
-              const SizedBox(height: 16),
-              DropdownButton<String>(
-                value: type,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem(
-                    value: 'StatelessWidget',
-                    child: Text('StatelessWidget'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'StatefulWidget',
-                    child: Text('StatefulWidget'),
-                  ),
-                ],
-                onChanged: (val) => setDialogState(() => type = val!),
+              ElevatedButton(
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  if (validateName(name)) {
+                    final newPage = PageData(
+                      id: 'page_${DateTime.now().millisecondsSinceEpoch}',
+                      name: name,
+                      type: type,
+                    );
+                    final updatedProject = project.copyWith(
+                      pages: [...project.pages, newPage],
+                    );
+                    ref
+                        .read(projectProvider.notifier)
+                        .updateProject(pIdx, updatedProject);
+                    Navigator.pop(context);
+                  } else {
+                    setDialogState(() {
+                      errorText = 'Nom qoidalarga mos emas!';
+                    });
+                  }
+                },
+                child: const Text('Qo\'shish'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Bekor qilish'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty) {
-                  final newPage = PageData(
-                    id: 'page_${project.pages.length + 1}',
-                    name: nameController.text,
-                    type: type,
-                  );
-                  final updatedProject = project.copyWith(
-                    pages: [...project.pages, newPage],
-                  );
-                  ref
-                      .read(projectProvider.notifier)
-                      .updateProject(pIdx, updatedProject);
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Qo\'shish'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

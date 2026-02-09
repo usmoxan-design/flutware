@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/app_models.dart';
+import '../../models/block_definitions.dart';
 import '../../providers/project_provider.dart';
+import '../../widgets/visual_block.dart';
 
 class LogicTab extends ConsumerStatefulWidget {
   const LogicTab({super.key});
@@ -12,6 +15,9 @@ class LogicTab extends ConsumerStatefulWidget {
 }
 
 class _LogicTabState extends ConsumerState<LogicTab> {
+  BlockCategory _selectedCategory = BlockCategory.view;
+  final Set<String> _seededPages = <String>{};
+
   @override
   Widget build(BuildContext context) {
     final project = ref.watch(currentProjectProvider);
@@ -19,182 +25,184 @@ class _LogicTabState extends ConsumerState<LogicTab> {
     final projectIndex = ref.watch(currentProjectIndexProvider);
     final pageIndex = ref.watch(currentPageIndexProvider);
 
-    if (project == null || page == null) return const SizedBox();
+    if (project == null ||
+        page == null ||
+        projectIndex == null ||
+        pageIndex == null) {
+      return const SizedBox();
+    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Sahifa initState Logikasi',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildActionSection(
-            context,
-            'Sahifa yuklanganda (initState)',
-            page.onCreate,
-            (actions) => _updatePage(
-              ref,
-              project,
-              projectIndex!,
-              pageIndex!,
-              page.copyWith(onCreate: actions),
-            ),
-          ),
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 16),
-          const Text(
-            'Eslatma: Widgetlar logikasi (onClicked, onLongPressed) UI sahifasidagi widgetlarning o\'zida (bolt ikonkasida) o\'zgartiriladi.',
-            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-          ),
-          const SizedBox(height: 32),
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: () => _showCodePreview(context, page),
-              icon: const Icon(Icons.code),
-              label: const Text('Sahifa Kodini Ko\'rish'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    _seedInitBlocksIfNeeded(project, projectIndex, page, pageIndex);
 
-  Widget _buildActionSection(
-    BuildContext context,
-    String title,
-    List<ActionBlock> actions,
-    Function(List<ActionBlock>) onUpdate,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final actions = page.onCreate;
+    final blocks = BlockRegistry.blocks
+        .where((item) => item.category == _selectedCategory)
+        .toList();
+
+    return Stack(
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.blueAccent,
+        Container(
+          color: const Color(0xFFF1F4F9),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 220),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'onCreate (initState)',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  children: [
+                    VisualBlockWidget(
+                      action: ActionBlock(
+                        type: 'event',
+                        data: const {'label': 'onCreate'},
+                      ),
+                      isHat: true,
+                    ),
+                    const SizedBox(height: 4),
+                    for (var i = 0; i < actions.length; i++)
+                      _buildActionItem(
+                        project,
+                        projectIndex,
+                        page,
+                        pageIndex,
+                        actions[i],
+                        i,
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        ...actions.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final action = entry.value;
-          return Card(
-            color: Colors.blue.shade50,
-            margin: const EdgeInsets.only(bottom: 4),
-            child: ListTile(
-              title: Text('Toast: ${action.data['message']}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                onPressed: () {
-                  final newActions = [...actions];
-                  newActions.removeAt(idx);
-                  onUpdate(newActions);
-                },
-              ),
-              onLongPress: () {
-                HapticFeedback.vibrate();
-                final newActions = [...actions];
-                newActions.removeAt(idx);
-                onUpdate(newActions);
-              },
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: 215,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCE4EE),
+              border: Border(top: BorderSide(color: Colors.grey.shade300)),
             ),
-          );
-        }),
-        TextButton.icon(
-          onPressed: () => _showAddBlockDialog(context, actions, onUpdate),
-          icon: const Icon(Icons.add_box_outlined),
-          label: const Text('Blok Qo\'shish'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                    children: [
+                      for (final block in blocks)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: InkWell(
+                            onTap: () => _appendBlock(
+                              project,
+                              projectIndex,
+                              page,
+                              pageIndex,
+                              block,
+                            ),
+                            child: VisualBlockWidget(
+                              action: _createPreviewAction(block),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, color: Colors.grey.shade300),
+                SizedBox(
+                  width: 126,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(10, 10, 10, 6),
+                        child: Text(
+                          'Search...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          children: [
+                            for (final category in BlockCategory.values)
+                              _buildCategoryItem(category),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
-  void _showAddBlockDialog(
-    BuildContext context,
-    List<ActionBlock> actions,
-    Function(List<ActionBlock>) onUpdate,
+  Widget _buildActionItem(
+    ProjectData project,
+    int projectIndex,
+    PageData page,
+    int pageIndex,
+    ActionBlock action,
+    int index,
   ) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Toast qo\'shish'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Toast xabari'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Bekor qilish'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                onUpdate([...actions, ActionBlock.toast(controller.text)]);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Qo\'shish'),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: VisualBlockWidget(
+        action: action,
+        onDelete: () {
+          final list = [...page.onCreate]..removeAt(index);
+          _saveOnCreate(project, projectIndex, page, pageIndex, list);
+        },
       ),
     );
   }
 
-  void _updatePage(
-    WidgetRef ref,
-    ProjectData project,
-    int pIdx,
-    int pgIdx,
-    PageData newPage,
-  ) {
-    final pages = [...project.pages];
-    pages[pgIdx] = newPage;
-    ref
-        .read(projectProvider.notifier)
-        .updateProject(pIdx, project.copyWith(pages: pages));
-  }
-
-  void _showCodePreview(BuildContext context, PageData page) {
-    final code = _generateDartCode(page);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        expand: false,
-        builder: (context, scrollController) => Column(
+  Widget _buildCategoryItem(BlockCategory category) {
+    final selected = _selectedCategory == category;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() => _selectedCategory = category),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? category.color.withValues(alpha: 0.18)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? category.color : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Dart Kodi',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Container(
+              width: 4,
+              height: 18,
+              decoration: BoxDecoration(
+                color: category.color,
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
+            const SizedBox(width: 8),
             Expanded(
-              child: SingleChildScrollView(
-                controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  color: Colors.grey.shade100,
-                  width: double.infinity,
-                  child: SelectableText(
-                    code,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
+              child: Text(
+                category.name[0].toUpperCase() + category.name.substring(1),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
               ),
             ),
           ],
@@ -203,34 +211,62 @@ class _LogicTabState extends ConsumerState<LogicTab> {
     );
   }
 
-  String _generateDartCode(PageData page) {
-    // Basic generator for the read-only view
-    final widgets = page.widgets
-        .map((w) {
-          if (w.type == 'text')
-            return '        Text("${w.text}", style: TextStyle(fontSize: ${w.fontSize})),';
-          if (w.type == 'button')
-            return '        ElevatedButton(onPressed: () {}, child: Text("${w.text}")),';
-          return '';
-        })
-        .join('\n');
+  void _seedInitBlocksIfNeeded(
+    ProjectData project,
+    int projectIndex,
+    PageData page,
+    int pageIndex,
+  ) {
+    if (page.onCreate.isNotEmpty) return;
+    if (_seededPages.contains(page.id)) return;
+    _seededPages.add(page.id);
 
-    return '''
-import 'package:flutter/material.dart';
-
-class ${page.name}Page extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("${page.name}")),
-      body: Column(
-        children: [
-$widgets
-        ],
+    final seeded = <ActionBlock>[
+      ActionBlock(type: 'if', data: const {'condition': 'true'}),
+      ActionBlock(
+        type: 'set_enabled',
+        data: const {'widgetId': 'button1', 'enabled': 'true'},
       ),
-    );
+      ActionBlock(type: 'request_focus', data: const {'widgetId': 'text1'}),
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _saveOnCreate(project, projectIndex, page, pageIndex, seeded);
+    });
   }
-}
-''';
+
+  void _appendBlock(
+    ProjectData project,
+    int projectIndex,
+    PageData page,
+    int pageIndex,
+    BlockDefinition block,
+  ) {
+    final next = [...page.onCreate, _createPreviewAction(block)];
+    _saveOnCreate(project, projectIndex, page, pageIndex, next);
+    HapticFeedback.selectionClick();
+  }
+
+  ActionBlock _createPreviewAction(BlockDefinition def) {
+    final data = <String, dynamic>{};
+    for (final parameter in def.parameters) {
+      if (parameter.defaultValue != null) {
+        data[parameter.key] = parameter.defaultValue;
+      }
+    }
+    return ActionBlock(type: def.type, data: data);
+  }
+
+  void _saveOnCreate(
+    ProjectData project,
+    int projectIndex,
+    PageData page,
+    int pageIndex,
+    List<ActionBlock> blocks,
+  ) {
+    final pages = [...project.pages];
+    pages[pageIndex] = page.copyWith(onCreate: blocks);
+    ref
+        .read(projectProvider.notifier)
+        .updateProject(projectIndex, project.copyWith(pages: pages));
   }
 }

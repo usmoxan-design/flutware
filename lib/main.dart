@@ -15,7 +15,7 @@ class FlutwareApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutware Builder',
+      title: 'Flutterware',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -27,7 +27,7 @@ class FlutwareApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           elevation: 0,
-          centerTitle: true,
+          centerTitle: false,
           titleTextStyle: TextStyle(
             color: Colors.black,
             fontSize: 20,
